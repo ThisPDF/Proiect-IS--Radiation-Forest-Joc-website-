@@ -1,30 +1,65 @@
-# Unity game concept
+# 🌲 Radiation Forest: Joc Website
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
+**Radiation Forest** este un proiect de tip website pentru un joc video conceptual, dezvoltat ca parte a unui proiect universitar. Platforma folosește Next.js pentru front-end și include o interfață modernă și responsivă cu componente UI personalizate.
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/thispdfs-projects/v0-unity-game-concept)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/1ujfn410wn4)
+## 🔧 Tehnologii folosite
 
-## Overview
+- [Next.js](https://nextjs.org/)
+- [React](https://react.dev/)
+- [TypeScript](https://www.typescriptlang.org/)
+- [Tailwind CSS](https://tailwindcss.com/)
+- [shadcn/ui](https://ui.shadcn.dev/) – componente UI moderne
+- pnpm (manager de pachete performant)
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+## ▶️ Rulare locală
 
-## Deployment
+1. Asigură-te că ai instalat [Node.js](https://nodejs.org/) și [pnpm](https://pnpm.io/).
 
-Your project is live at:
+2. Clonează acest repository și instalează dependențele:
 
-**[https://vercel.com/thispdfs-projects/v0-unity-game-concept](https://vercel.com/thispdfs-projects/v0-unity-game-concept)**
+   ```bash
+   pnpm install
+   ```
 
-## Build your app
+3. Pornește serverul de dezvoltare:
 
-Continue building your app on:
+   ```bash
+   pnpm dev
+   ```
 
-**[https://v0.dev/chat/projects/1ujfn410wn4](https://v0.dev/chat/projects/1ujfn410wn4)**
+4. Accesează aplicația la `http://localhost:3000`.
 
-## How It Works
+## 📁 Structură principală
 
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+```plaintext
+.
+├── app/                  # Pagini și layout Next.js
+├── components/           # Componente UI reutilizabile
+├── styles/               # Fișiere CSS globale
+├── public/               # Resurse statice (imagini, etc.)
+├── game-concept.tsx      # Componentă ce definește conceptul de joc
+├── tailwind.config.ts    # Configurare Tailwind
+├── tsconfig.json         # Configurare TypeScript
+├── package.json          # Configurare proiect
+└── pnpm-lock.yaml        # Lockfile pnpm
+```
+
+## 🕹️ Descriere funcțională
+
+Aplicația oferă o interfață stilizată care prezintă conceptul jocului *Radiation Forest*, un joc cu elemente de strategie și supraviețuire într-un mediu post-apocaliptic. Conține o structură modulară cu componente de tip `Card`, `Tabs`, `Dialog`, etc., ușor de extins pentru funcționalități viitoare.
+
+## 📌 Status
+
+✅ Interfață funcțională  
+🛠️ Gameplay-ul propriu-zis urmează a fi integrat
+
+## 👤 Autor
+
+**Popescu Florin Daniel**  
+Universitatea Politehnica din București – Facultatea de Inginerie Industrială și Robotică  
+GitHub: [@ThisPDF](https://github.com/ThisPDF)  
+LinkedIn: [Daniel Popescu](https://www.linkedin.com/in/daniel-popescu-460519246/)
+
+---
+
+📁 Proiect realizat în cadrul cursului de Ingineria Sistemelor Informatice pentru VR (ISIVR).
