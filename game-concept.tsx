@@ -157,6 +157,18 @@ export default function GameConcept() {
         const x = Math.sin(angle) * ENEMY_SPAWN_DISTANCE
         const z = Math.cos(angle) * ENEMY_SPAWN_DISTANCE
 
+        // Create path points for the enemy to follow
+        const pathPoints = []
+
+        // Add intermediate points to help navigate onto the island
+        // First point: Move toward the island edge
+        const edgeX = Math.sin(angle) * (ISLAND_RADIUS - 2)
+        const edgeZ = Math.cos(angle) * (ISLAND_RADIUS - 2)
+        pathPoints.push([edgeX, 1, edgeZ])
+
+        // Second point: Move toward the castle
+        pathPoints.push([...castlePosition])
+
         newEnemies.push({
           id: Date.now() + i,
           position: [x, 1, z],
@@ -164,7 +176,9 @@ export default function GameConcept() {
           health: 50 + newWaveNumber * 10,
           speed: 0.05 + newWaveNumber * 0.005,
           damage: 10 + newWaveNumber * 2,
-          target: [...castlePosition], // Make a copy of the castle position
+          target: [...castlePosition], // Final target
+          pathPoints: pathPoints, // Path to follow
+          currentPathIndex: 0, // Current point in the path
         })
       }
 
@@ -1099,12 +1113,27 @@ function Enemy({ enemy, buildings, setBuildings, characters, setCharacters, setE
     // Update enemy position in the ref
     enemy.position = positionRef.current
 
-    // Move toward target
-    const targetVector = new Vector3(...enemy.target)
+    // Get current target based on path
+    let currentTarget
+    if (enemy.pathPoints && enemy.currentPathIndex < enemy.pathPoints.length) {
+      currentTarget = new Vector3(...enemy.pathPoints[enemy.currentPathIndex])
+    } else {
+      currentTarget = new Vector3(...enemy.target)
+    }
+
     const currentPos = new Vector3(...positionRef.current)
 
+    // Check if we've reached the current path point
+    if (enemy.pathPoints && currentPos.distanceTo(currentTarget) < 2) {
+      // Move to next path point
+      if (enemy.currentPathIndex < enemy.pathPoints.length - 1) {
+        enemy.currentPathIndex++
+        currentTarget = new Vector3(...enemy.pathPoints[enemy.currentPathIndex])
+      }
+    }
+
     // Calculate direction vector
-    const directionVector = new Vector3().subVectors(targetVector, currentPos).normalize()
+    const directionVector = new Vector3().subVectors(currentTarget, currentPos).normalize()
 
     // Apply speed
     directionVector.multiplyScalar(enemy.speed)

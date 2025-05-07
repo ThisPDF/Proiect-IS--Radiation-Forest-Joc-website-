@@ -1,65 +1,55 @@
-# 🌲 Radiation Forest: Joc Website
+# Island Kingdom Defense
 
-**Radiation Forest** este un proiect de tip website pentru un joc video conceptual, dezvoltat ca parte a unui proiect universitar. Platforma folosește Next.js pentru front-end și include o interfață modernă și responsivă cu componente UI personalizate.
+A browser-based tower defense game where you build defenses, command characters, and protect your castle from waves of enemies.
 
-## 🔧 Tehnologii folosite
+## Game Features
 
-- [Next.js](https://nextjs.org/)
-- [React](https://react.dev/)
-- [TypeScript](https://www.typescriptlang.org/)
-- [Tailwind CSS](https://tailwindcss.com/)
-- [shadcn/ui](https://ui.shadcn.dev/) – componente UI moderne
-- pnpm (manager de pachete performant)
+- **Multiple Characters**: Control the King, Builder, Archer, and Knight, each with unique abilities
+- **First/Third Person Views**: Switch between perspectives for different gameplay experiences
+- **Building System**: Construct walls, towers, and barracks to defend your island
+- **Enemy Waves**: Face increasingly difficult waves of enemies
+- **Resource Management**: Collect and spend resources to build defenses
+- **Character Switching**: Swap between characters to utilize their unique strengths
 
-## ▶️ Rulare locală
+## Controls
 
-1. Asigură-te că ai instalat [Node.js](https://nodejs.org/) și [pnpm](https://pnpm.io/).
+- **WASD**: Move character
+- **Mouse**: Look around (first-person) / Rotate camera (third-person)
+- **Left Click**: Attack enemy / Select character / Place building (in build mode)
+- **Space**: Jump
+- **UI Buttons**: Switch between characters, toggle build mode, change perspective
 
-2. Clonează acest repository și instalează dependențele:
+## Game Mechanics
 
-   ```bash
-   pnpm install
-   ```
+- Defend your castle from waves of enemies
+- Build strategic defenses around your island
+- Command different characters to fight enemies
+- Collect resources from defeated enemies
+- Survive as many waves as possible
 
-3. Pornește serverul de dezvoltare:
+## Technical Implementation
 
-   ```bash
-   pnpm dev
-   ```
+- Built with React and Three.js
+- Uses React Three Fiber for 3D rendering
+- Implements physics with React Three Cannon
+- Features dynamic lighting and environmental effects
+- Responsive design for different screen sizes
 
-4. Accesează aplicația la `http://localhost:3000`.
+## Play Online
 
-## 📁 Structură principală
+[Play Island Kingdom Defense](https://unity-game-concept.vercel.app/)
 
-```plaintext
-.
-├── app/                  # Pagini și layout Next.js
-├── components/           # Componente UI reutilizabile
-├── styles/               # Fișiere CSS globale
-├── public/               # Resurse statice (imagini, etc.)
-├── game-concept.tsx      # Componentă ce definește conceptul de joc
-├── tailwind.config.ts    # Configurare Tailwind
-├── tsconfig.json         # Configurare TypeScript
-├── package.json          # Configurare proiect
-└── pnpm-lock.yaml        # Lockfile pnpm
-```
+## Development
 
-## 🕹️ Descriere funcțională
+This project is a browser-based implementation of a tower defense game concept.
 
-Aplicația oferă o interfață stilizată care prezintă conceptul jocului *Radiation Forest*, un joc cu elemente de strategie și supraviețuire într-un mediu post-apocaliptic. Conține o structură modulară cu componente de tip `Card`, `Tabs`, `Dialog`, etc., ușor de extins pentru funcționalități viitoare.
+### Local Development
 
-## 📌 Status
+1. Clone the repository
+2. Install dependencies with `npm install`
+3. Run the development server with `npm run dev`
+4. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-✅ Interfață funcțională  
-🛠️ Gameplay-ul propriu-zis urmează a fi integrat
+## License
 
-## 👤 Autor
-
-**Popescu Florin Daniel**  
-Universitatea Politehnica din București – Facultatea de Inginerie Industrială și Robotică  
-GitHub: [@ThisPDF](https://github.com/ThisPDF)  
-LinkedIn: [Daniel Popescu](https://www.linkedin.com/in/daniel-popescu-460519246/)
-
----
-
-📁 Proiect realizat în cadrul cursului de Ingineria Sistemelor 
+MIT
