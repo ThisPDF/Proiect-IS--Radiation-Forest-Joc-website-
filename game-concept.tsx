@@ -136,6 +136,10 @@ export default function GameConcept() {
   // Wave system
   const spawnWave = () => {
     setWaveIncoming(true)
+
+    // Shorter warning time for first wave
+    const warningTime = waveNumber === 0 ? 3000 : 10000
+
     setTimeout(() => {
       const newWaveNumber = waveNumber + 1
       setWaveNumber(newWaveNumber)
@@ -171,7 +175,7 @@ export default function GameConcept() {
       setTimeout(() => {
         if (!gameOver) spawnWave()
       }, 60000) // 1 minute between waves
-    }, 10000) // 10 second warning
+    }, warningTime) // Shorter warning for first wave
   }
 
   // Character movement - modified to use refs and batch updates
@@ -937,13 +941,32 @@ function Building({ building }) {
 
       {/* Health bar */}
       <group position={[building.position[0], building.position[1] + building.size[1] / 2 + 1, building.position[2]]}>
-        <mesh position={[0, 0, 0]} scale={[1, 0.1, 0.1]}>
+        {/* Background bar (gray) */}
+        <mesh position={[0, 0, 0]} scale={[1.1, 0.15, 0.1]}>
           <boxGeometry />
           <meshBasicMaterial color="#333333" />
         </mesh>
-        <mesh position={[(building.health / 100 - 1) / 2, 0, 0]} scale={[building.health / 100, 0.08, 0.08]}>
+        {/* Health indicator (green/yellow/red) - starts larger than background */}
+        <mesh
+          position={[0, 0, 0.01]}
+          scale={[1.5 * (building.health / (building.type === "castle" ? 500 : 100)), 0.2, 0.12]}
+        >
           <boxGeometry />
-          <meshBasicMaterial color={building.health > 70 ? "#00ff00" : building.health > 30 ? "#ffff00" : "#ff0000"} />
+          <meshBasicMaterial
+            color={
+              building.type === "castle"
+                ? building.health > 350
+                  ? "#00ff00"
+                  : building.health > 150
+                    ? "#ffff00"
+                    : "#ff0000"
+                : building.health > 70
+                  ? "#00ff00"
+                  : building.health > 30
+                    ? "#ffff00"
+                    : "#ff0000"
+            }
+          />
         </mesh>
       </group>
     </group>
@@ -1023,11 +1046,13 @@ function Character({ character, characterPositionsRef, isActive, onClick }) {
 
       {/* Health bar */}
       <group position={[positionRef.current[0], positionRef.current[1] + 2.5, positionRef.current[2]]}>
-        <mesh position={[0, 0, 0]} scale={[1, 0.1, 0.1]}>
+        {/* Background bar (gray) */}
+        <mesh position={[0, 0, 0]} scale={[1.1, 0.15, 0.1]}>
           <boxGeometry />
           <meshBasicMaterial color="#333333" />
         </mesh>
-        <mesh position={[(character.health / 100 - 1) / 2, 0, 0]} scale={[character.health / 100, 0.08, 0.08]}>
+        {/* Health indicator (green/yellow/red) - starts larger than background */}
+        <mesh position={[0, 0, 0.01]} scale={[1.5 * (character.health / 100), 0.2, 0.12]}>
           <boxGeometry />
           <meshBasicMaterial
             color={character.health > 70 ? "#00ff00" : character.health > 30 ? "#ffff00" : "#ff0000"}
@@ -1071,6 +1096,9 @@ function Enemy({ enemy, buildings, setBuildings, characters, setCharacters, setE
   }, [api])
 
   useFrame(() => {
+    // Update enemy position in the ref
+    enemy.position = positionRef.current
+
     // Move toward target
     const targetVector = new Vector3(...enemy.target)
     const currentPos = new Vector3(...positionRef.current)
@@ -1082,7 +1110,7 @@ function Enemy({ enemy, buildings, setBuildings, characters, setCharacters, setE
     directionVector.multiplyScalar(enemy.speed)
 
     // Keep y velocity at 0 to prevent flying
-    api.velocity.set(directionVector.x, 0, directionVector.z)
+    api.velocity.set(directionVector.x, velocityRef.current[1], directionVector.z)
 
     // Check for collisions with buildings
     buildings.forEach((building) => {
@@ -1147,11 +1175,13 @@ function Enemy({ enemy, buildings, setBuildings, characters, setCharacters, setE
 
       {/* Health bar */}
       <group position={[positionRef.current[0], positionRef.current[1] + 2.5, positionRef.current[2]]}>
-        <mesh position={[0, 0, 0]} scale={[1, 0.1, 0.1]}>
+        {/* Background bar (gray) */}
+        <mesh position={[0, 0, 0]} scale={[1.1, 0.15, 0.1]}>
           <boxGeometry />
           <meshBasicMaterial color="#333333" />
         </mesh>
-        <mesh position={[(enemy.health / 100 - 1) / 2, 0, 0]} scale={[enemy.health / 100, 0.08, 0.08]}>
+        {/* Health indicator (red) - starts larger than background */}
+        <mesh position={[0, 0, 0.01]} scale={[1.5 * (enemy.health / 100), 0.2, 0.12]}>
           <boxGeometry />
           <meshBasicMaterial color="#ff0000" />
         </mesh>
