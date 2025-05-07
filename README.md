@@ -62,4 +62,4 @@ LinkedIn: [Daniel Popescu](https://www.linkedin.com/in/daniel-popescu-460519246/
 
 ---
 
-📁 Proiect realizat în cadrul cursului de Ingineria Sistemelor Informatice pentru VR (ISIVR).
+📁 Proiect realizat în cadrul cursului de Ingineria Sistemelor 
