@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useMemo } from "react"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { OrbitControls, Sky, Text, useTexture, Environment, Sphere, Box, Stars } from "@react-three/drei"
-import { Vector3 } from "three"
+import { Vector3, Quaternion } from "three"
 import { Physics, usePlane, useBox } from "@react-three/cannon"
 import { Bloom, EffectComposer, DepthOfField, Noise } from "@react-three/postprocessing"
 import * as THREE from "three"
@@ -15,13 +15,56 @@ const ROTATION_SPEED = 0.03
 const BUILD_GRID_SIZE = 2
 const ENEMY_SPAWN_DISTANCE = 35
 const GRAVITY = [0, -9.81, 0]
+const ATTACK_RANGE = 3
+const ATTACK_COOLDOWN = 1000 // ms
+const ATTACK_DAMAGE = 20
 
 // Game state
 const initialCharacters = [
-  { id: 1, name: "King", color: "#FFD700", position: [0, 1, 0], role: "Leader", health: 100, speed: 1.0 },
-  { id: 2, name: "Builder", color: "#8B4513", position: [5, 1, 2], role: "Construction", health: 80, speed: 1.2 },
-  { id: 3, name: "Archer", color: "#228B22", position: [-5, 1, 2], role: "Defense", health: 70, speed: 1.3 },
-  { id: 4, name: "Knight", color: "#4682B4", position: [0, 1, 5], role: "Combat", health: 120, speed: 0.9 },
+  {
+    id: 1,
+    name: "King",
+    color: "#FFD700",
+    position: [0, 1, 0],
+    role: "Leader",
+    health: 100,
+    speed: 1.0,
+    damage: 25,
+    attackRange: 3,
+  },
+  {
+    id: 2,
+    name: "Builder",
+    color: "#8B4513",
+    position: [5, 1, 2],
+    role: "Construction",
+    health: 100,
+    speed: 1.2,
+    damage: 15,
+    attackRange: 2,
+  },
+  {
+    id: 3,
+    name: "Archer",
+    color: "#228B22",
+    position: [-5, 1, 2],
+    role: "Defense",
+    health: 100,
+    speed: 1.3,
+    damage: 30,
+    attackRange: 5,
+  },
+  {
+    id: 4,
+    name: "Knight",
+    color: "#4682B4",
+    position: [0, 1, 5],
+    role: "Combat",
+    health: 100,
+    speed: 0.9,
+    damage: 35,
+    attackRange: 2.5,
+  },
 ]
 
 const buildingTypes = [
@@ -37,7 +80,7 @@ export default function GameConcept() {
   const [buildMode, setBuildMode] = useState(false)
   const [selectedBuildingType, setSelectedBuildingType] = useState(buildingTypes[0])
   const [buildings, setBuildings] = useState([
-    { id: 1, type: "castle", position: [0, 1, -5], size: [8, 6, 8], color: "#808080", health: 500 },
+    { id: 1, type: "castle", position: [0, 1, -15], size: [8, 6, 8], color: "#808080", health: 500 },
   ])
   const [buildPreview, setBuildPreview] = useState(null)
   const [enemies, setEnemies] = useState([])
@@ -49,15 +92,18 @@ export default function GameConcept() {
   const [showTaskMenu, setShowTaskMenu] = useState(false)
   const [gameStarted, setGameStarted] = useState(false)
   const [gameOver, setGameOver] = useState(false)
+  const [attackEffects, setAttackEffects] = useState([])
 
   // Use refs for camera values to avoid re-renders
   const cameraPositionRef = useRef([0, 10, 20])
   const cameraTargetRef = useRef([0, 0, 0])
+  const cameraRotationRef = useRef(0)
 
   const activeCharacter = characters.find((c) => c.id === activeCharacterId) || characters[0]
 
   // Store character positions in a ref to avoid unnecessary re-renders
   const characterPositionsRef = useRef({})
+  const lastAttackTimeRef = useRef({})
 
   // Initialize character positions ref
   useEffect(() => {
@@ -66,6 +112,7 @@ export default function GameConcept() {
         position: [...char.position],
         rotation: 0,
       }
+      lastAttackTimeRef.current[char.id] = 0
     })
   }, [])
 
@@ -97,6 +144,10 @@ export default function GameConcept() {
       const newEnemies = []
       const enemyCount = Math.min(3 + newWaveNumber, 15)
 
+      // Find the castle position to use as the target
+      const castle = buildings.find((b) => b.type === "castle")
+      const castlePosition = castle ? castle.position : [0, 1, -15]
+
       for (let i = 0; i < enemyCount; i++) {
         const angle = (Math.PI * 2 * i) / enemyCount
         const x = Math.sin(angle) * ENEMY_SPAWN_DISTANCE
@@ -109,7 +160,7 @@ export default function GameConcept() {
           health: 50 + newWaveNumber * 10,
           speed: 0.05 + newWaveNumber * 0.005,
           damage: 10 + newWaveNumber * 2,
-          target: [0, 1, -5], // Target the castle
+          target: [...castlePosition], // Make a copy of the castle position
         })
       }
 
@@ -152,6 +203,98 @@ export default function GameConcept() {
       })
     }
   }
+
+  // Character attack function
+  const attackEnemy = (characterId, enemyId) => {
+    const now = Date.now()
+    const lastAttackTime = lastAttackTimeRef.current[characterId] || 0
+
+    // Check cooldown
+    if (now - lastAttackTime < ATTACK_COOLDOWN) {
+      return false
+    }
+
+    // Update last attack time
+    lastAttackTimeRef.current[characterId] = now
+
+    // Find character and enemy
+    const character = characters.find((c) => c.id === characterId)
+    const enemy = enemies.find((e) => e.id === enemyId)
+
+    if (!character || !enemy) return false
+
+    // Calculate damage
+    const damage = character.damage
+
+    // Update enemy health
+    setEnemies(
+      (prev) =>
+        prev
+          .map((e) => {
+            if (e.id === enemyId) {
+              const newHealth = Math.max(0, e.health - damage)
+              // If enemy is defeated
+              if (newHealth <= 0) {
+                setResources((r) => r + 10) // Reward for killing enemy
+                return null // Remove enemy
+              }
+              return { ...e, health: newHealth }
+            }
+            return e
+          })
+          .filter(Boolean), // Remove null entries (defeated enemies)
+    )
+
+    // Add attack effect
+    const characterPos = characterPositionsRef.current[characterId]?.position || character.position
+    const enemyPos = enemy.position
+
+    setAttackEffects((prev) => [
+      ...prev,
+      {
+        id: Date.now(),
+        start: [...characterPos],
+        end: [...enemyPos],
+        time: 0,
+        duration: 0.3, // seconds
+        color: character.color,
+      },
+    ])
+
+    return true
+  }
+
+  // Auto-attack for non-player characters
+  useEffect(() => {
+    if (!gameStarted || gameOver) return
+
+    const interval = setInterval(() => {
+      // Skip the active character (player controlled)
+      characters.forEach((character) => {
+        if (character.id === activeCharacterId) return
+
+        // Find closest enemy within attack range
+        const charPos = characterPositionsRef.current[character.id]?.position || character.position
+        let closestEnemy = null
+        let closestDistance = Number.POSITIVE_INFINITY
+
+        enemies.forEach((enemy) => {
+          const distance = new Vector3(...charPos).distanceTo(new Vector3(...enemy.position))
+          if (distance < character.attackRange && distance < closestDistance) {
+            closestEnemy = enemy
+            closestDistance = distance
+          }
+        })
+
+        // Attack if enemy found
+        if (closestEnemy) {
+          attackEnemy(character.id, closestEnemy.id)
+        }
+      })
+    }, 500) // Check every 500ms
+
+    return () => clearInterval(interval)
+  }, [gameStarted, gameOver, characters, enemies, activeCharacterId])
 
   // Building placement
   const placeBuilding = (position) => {
@@ -214,6 +357,28 @@ export default function GameConcept() {
     }
   }, [activeCharacter, gameMode])
 
+  // Update attack effects
+  useEffect(() => {
+    if (attackEffects.length === 0) return
+
+    const timer = setInterval(() => {
+      setAttackEffects(
+        (prev) =>
+          prev
+            .map((effect) => {
+              const newTime = effect.time + 0.05
+              if (newTime >= effect.duration) {
+                return null // Remove completed effects
+              }
+              return { ...effect, time: newTime }
+            })
+            .filter(Boolean), // Remove null entries
+      )
+    }, 50)
+
+    return () => clearInterval(timer)
+  }, [attackEffects])
+
   return (
     <div className="relative w-full h-screen">
       {!gameStarted ? (
@@ -254,7 +419,12 @@ export default function GameConcept() {
           <Noise opacity={0.02} />
         </EffectComposer>
 
-        <CameraController cameraPositionRef={cameraPositionRef} cameraTargetRef={cameraTargetRef} gameMode={gameMode} />
+        <CameraController
+          cameraPositionRef={cameraPositionRef}
+          cameraTargetRef={cameraTargetRef}
+          cameraRotationRef={cameraRotationRef}
+          gameMode={gameMode}
+        />
 
         <Sky sunPosition={[100, 20, 100]} turbidity={0.3} rayleigh={0.5} />
         <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
@@ -305,6 +475,11 @@ export default function GameConcept() {
             />
           ))}
 
+          {/* Attack Effects */}
+          {attackEffects.map((effect) => (
+            <AttackEffect key={effect.id} effect={effect} />
+          ))}
+
           {/* Player Controller */}
           <PlayerController
             character={activeCharacter}
@@ -314,8 +489,11 @@ export default function GameConcept() {
             moveCharacter={moveCharacter}
             updateBuildPreview={updateBuildPreview}
             placeBuilding={placeBuilding}
+            attackEnemy={attackEnemy}
+            enemies={enemies}
             cameraPositionRef={cameraPositionRef}
             cameraTargetRef={cameraTargetRef}
+            cameraRotationRef={cameraRotationRef}
           />
         </Physics>
 
@@ -457,7 +635,7 @@ export default function GameConcept() {
           <p className="font-bold">Controls:</p>
           <p>• WASD - Move character</p>
           <p>• Mouse - Look around (first-person) / Rotate camera (third-person)</p>
-          <p>• Left Click - Select character / Place building (in build mode)</p>
+          <p>• Left Click - Attack enemy / Select character / Place building (in build mode)</p>
           <p>• Space - Jump</p>
         </div>
       </div>
@@ -466,41 +644,64 @@ export default function GameConcept() {
 }
 
 // Camera controller component to handle camera updates
-function CameraController({ cameraPositionRef, cameraTargetRef, gameMode }) {
+function CameraController({ cameraPositionRef, cameraTargetRef, cameraRotationRef, gameMode }) {
   const { camera } = useThree()
 
   useFrame(() => {
     // Update camera position and target based on refs
     if (gameMode === "first-person") {
+      // Set camera position
       camera.position.set(cameraPositionRef.current[0], cameraPositionRef.current[1], cameraPositionRef.current[2])
-      camera.lookAt(cameraTargetRef.current[0], cameraTargetRef.current[1], cameraTargetRef.current[2])
+
+      // Create a quaternion from the camera rotation
+      const quaternion = new Quaternion().setFromAxisAngle(
+        new Vector3(0, 1, 0), // Y-axis
+        cameraRotationRef.current,
+      )
+
+      // Apply the quaternion to the camera
+      camera.quaternion.copy(quaternion)
     }
   })
 
   return null
 }
 
+// Attack effect component
+function AttackEffect({ effect }) {
+  const { start, end, time, duration, color } = effect
+  const progress = time / duration
+
+  // Calculate current position
+  const x = start[0] + (end[0] - start[0]) * progress
+  const y = start[1] + (end[1] - start[1]) * progress + Math.sin(progress * Math.PI) * 1 // Arc upward
+  const z = start[2] + (end[2] - start[2]) * progress
+
+  return (
+    <mesh position={[x, y, z]}>
+      <sphereGeometry args={[0.2, 8, 8]} />
+      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={2} />
+    </mesh>
+  )
+}
+
 // Realistic Island component with terrain
 function RealisticIsland({ radius }) {
-  const [ref] = usePlane(() => ({
+  const terrainRef = useRef()
+
+  // Use a placeholder texture for the grass
+  const grassTexture = useTexture("/placeholder.svg?key=wb73o")
+
+  // Set texture repeat
+  grassTexture.repeat.set(10, 10)
+  grassTexture.wrapS = grassTexture.wrapT = THREE.RepeatWrapping
+
+  // Create a separate physics plane for collision
+  const [planeRef] = usePlane(() => ({
     rotation: [-Math.PI / 2, 0, 0],
     position: [0, 0, 0],
     type: "Static",
   }))
-
-  // Create a more realistic island with elevation
-  const terrainRef = useRef()
-
-  // Use multiple textures for different parts of the island
-  const grassTexture = useTexture("/placeholder.svg?key=19z5r")
-  const sandTexture = useTexture("/sand-texture.png")
-
-  // Set texture repeat
-  grassTexture.repeat.set(10, 10)
-  sandTexture.repeat.set(10, 10)
-
-  grassTexture.wrapS = grassTexture.wrapT = THREE.RepeatWrapping
-  sandTexture.wrapS = sandTexture.wrapT = THREE.RepeatWrapping
 
   useFrame(({ clock }) => {
     if (terrainRef.current) {
@@ -511,10 +712,16 @@ function RealisticIsland({ radius }) {
 
   return (
     <group ref={terrainRef}>
-      {/* Main island body */}
-      <mesh ref={ref} receiveShadow>
-        <cylinderGeometry args={[radius, radius * 1.2, 2, 64]} />
-        <meshStandardMaterial map={grassTexture} />
+      {/* Invisible physics plane for collision */}
+      <mesh ref={planeRef} visible={false}>
+        <planeGeometry args={[radius * 2, radius * 2]} />
+        <meshStandardMaterial transparent opacity={0} />
+      </mesh>
+
+      {/* Visual island - no physics */}
+      <mesh position={[0, 0, 0]} receiveShadow>
+        <cylinderGeometry args={[radius, radius, 0.5, 64]} />
+        <meshStandardMaterial map={grassTexture} color="#4a7c59" />
       </mesh>
 
       {/* Beach/shore ring */}
@@ -523,19 +730,20 @@ function RealisticIsland({ radius }) {
         <meshStandardMaterial color="#f4e2c4" />
       </mesh>
 
-      {/* Random terrain features - small hills and depressions */}
-      {Array.from({ length: 15 }).map((_, i) => {
-        const angle = (Math.PI * 2 * i) / 15
-        const distance = radius * 0.6 * Math.random()
+      {/* Random terrain features - only at the edges to avoid center issues */}
+      {Array.from({ length: 12 }).map((_, i) => {
+        const angle = (Math.PI * 2 * i) / 12
+        // Place terrain features at the edge
+        const distance = radius * 0.8
         const x = Math.sin(angle) * distance
         const z = Math.cos(angle) * distance
-        const height = 0.2 + Math.random() * 0.8
-        const width = 1 + Math.random() * 3
+        const height = 0.2 + Math.random() * 0.3
+        const width = 1 + Math.random() * 1.5
 
         return (
-          <mesh key={i} position={[x, 0.5, z]} receiveShadow>
+          <mesh key={i} position={[x, 0.3, z]} receiveShadow>
             <cylinderGeometry args={[width, width * 0.8, height, 16]} />
-            <meshStandardMaterial map={grassTexture} />
+            <meshStandardMaterial map={grassTexture} color="#4a7c59" />
           </mesh>
         )
       })}
@@ -765,12 +973,13 @@ function Character({ character, characterPositionsRef, isActive, onClick }) {
 
   // Subscribe to position updates from physics
   useEffect(() => {
+    // This is the correct way to subscribe to position updates
     const unsubscribe = api.position.subscribe((v) => {
       positionRef.current = [v[0], v[1], v[2]]
     })
 
     return unsubscribe
-  }, [api.position])
+  }, [api])
 
   // Update position from ref
   useFrame(() => {
@@ -841,23 +1050,39 @@ function Enemy({ enemy, buildings, setBuildings, characters, setCharacters, setE
   // Use ref for position to avoid re-renders
   const positionRef = useRef(enemy.position)
   const healthRef = useRef(enemy.health)
+  const velocityRef = useRef([0, 0, 0])
 
   // Subscribe to position updates from physics
   useEffect(() => {
-    const unsubscribe = api.position.subscribe((v) => {
+    // This is the correct way to subscribe to position updates
+    const unsubPosition = api.position.subscribe((v) => {
       positionRef.current = [v[0], v[1], v[2]]
     })
 
-    return unsubscribe
-  }, [api.position])
+    // Also subscribe to velocity to monitor movement
+    const unsubVelocity = api.velocity.subscribe((v) => {
+      velocityRef.current = [v[0], v[1], v[2]]
+    })
+
+    return () => {
+      unsubPosition()
+      unsubVelocity()
+    }
+  }, [api])
 
   useFrame(() => {
     // Move toward target
     const targetVector = new Vector3(...enemy.target)
     const currentPos = new Vector3(...positionRef.current)
-    const direction = targetVector.sub(currentPos).normalize().multiplyScalar(enemy.speed)
 
-    api.velocity.set(direction.x, 0, direction.z)
+    // Calculate direction vector
+    const directionVector = new Vector3().subVectors(targetVector, currentPos).normalize()
+
+    // Apply speed
+    directionVector.multiplyScalar(enemy.speed)
+
+    // Keep y velocity at 0 to prevent flying
+    api.velocity.set(directionVector.x, 0, directionVector.z)
 
     // Check for collisions with buildings
     buildings.forEach((building) => {
@@ -891,10 +1116,6 @@ function Enemy({ enemy, buildings, setBuildings, characters, setCharacters, setE
         }
       }
     })
-
-    // Update enemy position in the original object
-    enemy.position = [...positionRef.current]
-    enemy.health = healthRef.current
   })
 
   return (
@@ -948,10 +1169,13 @@ function PlayerController({
   moveCharacter,
   updateBuildPreview,
   placeBuilding,
+  attackEnemy,
+  enemies,
   cameraPositionRef,
   cameraTargetRef,
+  cameraRotationRef,
 }) {
-  const { camera } = useThree()
+  const { camera, raycaster, mouse } = useThree()
   const keysPressed = useRef({})
   const mousePosition = useRef({ x: 0, y: 0 })
   const characterRotation = useRef(0)
@@ -959,6 +1183,7 @@ function PlayerController({
   const jumpVelocity = useRef(0)
   const lastUpdateTime = useRef(0)
   const characterPosRef = useRef([...character.position])
+  const pitchRef = useRef(0) // For vertical look in first-person
 
   // Set up key listeners
   useEffect(() => {
@@ -977,41 +1202,74 @@ function PlayerController({
     }
 
     const handleMouseMove = (e) => {
-      if (gameMode === "first-person") {
-        mousePosition.current.x = e.movementX
-        mousePosition.current.y = e.movementY
+      if (gameMode === "first-person" && document.pointerLockElement) {
+        // Adjust sensitivity
+        const sensitivity = 0.002
 
-        // Update character rotation based on mouse movement
-        characterRotation.current -= e.movementX * ROTATION_SPEED
+        // Update character rotation based on mouse movement (yaw)
+        characterRotation.current -= e.movementX * sensitivity
+        cameraRotationRef.current = characterRotation.current
+
+        // Update pitch (vertical look)
+        pitchRef.current -= e.movementY * sensitivity
+        // Clamp pitch to avoid flipping
+        pitchRef.current = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, pitchRef.current))
       }
     }
 
     const handleMouseDown = (e) => {
-      if (e.button === 0 && buildMode) {
-        // Left click in build mode
-        // Get mouse position in 3D space
-        const raycaster = new THREE.Raycaster()
-        const mouse = new THREE.Vector2(
-          (e.clientX / window.innerWidth) * 2 - 1,
-          -(e.clientY / window.innerHeight) * 2 + 1,
-        )
+      if (e.button === 0) {
+        if (buildMode) {
+          // Left click in build mode - place building
+          const raycaster = new THREE.Raycaster()
+          const mouse = new THREE.Vector2(
+            (e.clientX / window.innerWidth) * 2 - 1,
+            -(e.clientY / window.innerHeight) * 2 + 1,
+          )
 
-        raycaster.setFromCamera(mouse, camera)
+          raycaster.setFromCamera(mouse, camera)
 
-        // Calculate intersection with ground plane
-        const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
-        const intersection = new THREE.Vector3()
-        raycaster.ray.intersectPlane(groundPlane, intersection)
+          // Calculate intersection with ground plane
+          const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
+          const intersection = new THREE.Vector3()
+          raycaster.ray.intersectPlane(groundPlane, intersection)
 
-        // Place building at intersection point with grid snapping
-        if (intersection) {
-          // Snap to grid
-          const x = Math.round(intersection.x / BUILD_GRID_SIZE) * BUILD_GRID_SIZE
-          const z = Math.round(intersection.z / BUILD_GRID_SIZE) * BUILD_GRID_SIZE
-          placeBuilding([x, 1, z])
+          // Place building at intersection point with grid snapping
+          if (intersection) {
+            // Snap to grid
+            const x = Math.round(intersection.x / BUILD_GRID_SIZE) * BUILD_GRID_SIZE
+            const z = Math.round(intersection.z / BUILD_GRID_SIZE) * BUILD_GRID_SIZE
+            placeBuilding([x, 1, z])
+          }
+        } else {
+          // Left click in normal mode - attack nearest enemy
+          const characterPos = new Vector3(...characterPosRef.current)
+          let closestEnemy = null
+          let closestDistance = Number.POSITIVE_INFINITY
+
+          enemies.forEach((enemy) => {
+            const distance = characterPos.distanceTo(new Vector3(...enemy.position))
+            if (distance < character.attackRange && distance < closestDistance) {
+              closestEnemy = enemy
+              closestDistance = distance
+            }
+          })
+
+          if (closestEnemy) {
+            attackEnemy(characterId, closestEnemy.id)
+          }
         }
       }
     }
+
+    const handlePointerLock = () => {
+      if (gameMode === "first-person" && !document.pointerLockElement) {
+        document.body.requestPointerLock && document.body.requestPointerLock()
+      }
+    }
+
+    // Add click handler to lock pointer
+    document.addEventListener("click", handlePointerLock)
 
     window.addEventListener("keydown", handleKeyDown)
     window.addEventListener("keyup", handleKeyUp)
@@ -1021,17 +1279,29 @@ function PlayerController({
     // Lock pointer for first-person mode
     if (gameMode === "first-person") {
       document.body.requestPointerLock && document.body.requestPointerLock()
-    } else {
-      document.exitPointerLock && document.exitPointerLock()
+    } else if (document.exitPointerLock) {
+      document.exitPointerLock()
     }
 
     return () => {
+      document.removeEventListener("click", handlePointerLock)
       window.removeEventListener("keydown", handleKeyDown)
       window.removeEventListener("keyup", handleKeyUp)
       window.removeEventListener("mousemove", handleMouseMove)
       window.removeEventListener("mousedown", handleMouseDown)
     }
-  }, [gameMode, buildMode, camera, placeBuilding, isJumping, setIsJumping])
+  }, [
+    gameMode,
+    buildMode,
+    camera,
+    placeBuilding,
+    isJumping,
+    setIsJumping,
+    character,
+    characterId,
+    attackEnemy,
+    enemies,
+  ])
 
   // Update character position ref when character changes
   useEffect(() => {
@@ -1109,13 +1379,22 @@ function PlayerController({
     // Update camera position in first-person mode
     if (gameMode === "first-person") {
       const eyeHeight = 1.7 // Eye level
-      const newCamPos = [newPosition.x, newPosition.y + eyeHeight, newPosition.z]
 
-      cameraPositionRef.current = newCamPos
+      // Position camera at character's eye level
+      cameraPositionRef.current = [newPosition.x, newPosition.y + eyeHeight, newPosition.z]
 
-      // Calculate look target based on rotation
-      const lookDir = new Vector3(0, 0, -1).applyAxisAngle(new Vector3(0, 1, 0), characterRotation.current)
-      const targetPos = [newPosition.x + lookDir.x, newPosition.y + eyeHeight, newPosition.z + lookDir.z]
+      // Calculate look direction based on character rotation and pitch
+      const lookDir = new Vector3(0, 0, -1)
+        .applyAxisAngle(new Vector3(1, 0, 0), pitchRef.current) // Apply pitch (up/down)
+        .applyAxisAngle(new Vector3(0, 1, 0), characterRotation.current) // Apply yaw (left/right)
+
+      // Set look target ahead of the character
+      const lookDistance = 100
+      const targetPos = [
+        newPosition.x + lookDir.x * lookDistance,
+        newPosition.y + eyeHeight + lookDir.y * lookDistance,
+        newPosition.z + lookDir.z * lookDistance,
+      ]
 
       cameraTargetRef.current = targetPos
     } else {
